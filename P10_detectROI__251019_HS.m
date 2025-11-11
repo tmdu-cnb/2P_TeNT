@@ -157,134 +157,55 @@ F_signal2_check2 = F_signal2;
 
 % 任意の数だけすべて列が0の行を作成する数を指定
 num_zero_columns = 0; % ここで任意の数を指定
-
-% ★ROI番号指定オプションを追加
-prompt_roi = {'ROI番号をカンマ区切りで入力 (例: 5,12,23)', ...
-              '※空欄のままOK、またはキャンセルでランダム10個が選ばれます'};
-answer_roi = inputdlg(prompt_roi, 'ROI Selection for Traces (Optional)', [1 60], {''});
-
-use_specific_rois = false;
-specific_roi_indices = [];
-specific_roi_numbers = [];
-
-% ダイアログがキャンセルされた場合、または空欄の場合はランダム選択
-if ~isempty(answer_roi) && ~isempty(strtrim(answer_roi{1}))
-    use_specific_rois = true;
-    specified_rois = str2num(answer_roi{1}); %#ok<ST2NM>
-    
-    if isempty(specified_rois)
-        warning('ROI番号の形式が正しくありません。ランダム選択に切り替えます。');
-        use_specific_rois = false;
-    else
-        % F_signal2のROI番号列を確認
-        roi_col = F_signal2(:, end);
-        if iscell(roi_col)
-            roi_col = cell2mat(roi_col);
-        end
-        
-        % 指定されたROIがF_signal2に存在するか確認
-        [tf, loc] = ismember(specified_rois, roi_col);
-        if ~all(tf)
-            missing = specified_rois(~tf);
-            warning('以下のROIが見つかりません: %s', num2str(missing));
-        end
-        if ~any(tf)
-            warning('指定されたROIが1つも見つかりませんでした。ランダム選択に切り替えます。');
-            use_specific_rois = false;
-        else
-            specific_roi_indices = loc(tf);  % F_signal2内の行インデックス
-            specific_roi_numbers = specified_rois(tf);  % 実際のROI番号
-        end
-    end
-end
-
-if ~use_specific_rois
-    disp('ROI番号が指定されていないため、ランダムに選択します。');
-end
-
 % Figure作成
 min_value = min(120, nF_pre); % 120とnF_preの小さい方を選択
 ranges = {[1:Num_frames], [1:Num_frames], [1:Num_frames]}; % 任意のframe数の範囲を指定
 %ranges = {[1:min_value], [121:min_value+120], [181:min_value+180]}; % 任意のframe数の範囲を指定
 titles = {'Columns 1', 'Columns 2', 'Columns 3'};
 file_names = {'F_signal2_1.eps', 'F_signal2_2.eps', 'F_signal2_3.eps'};
-
-if use_specific_rois
-    total_lines = min(numel(specific_roi_indices), 10);  % 最大10個
-else
-    total_lines = 10;
-end
-
+total_lines = 10; % 合計の行数を計算
 colors = lines(total_lines); % 必要な行数の異なる色を取得
-
 for k = 1:3
    range = ranges{k};
    figure;
    hold on;
   
-   % ROI選択
-   if use_specific_rois
-       % 指定されたROIを使用（最大10個）
-       randomRows = specific_roi_indices(1:min(numel(specific_roi_indices), 10));
-       display_roi_numbers = specific_roi_numbers(1:min(numel(specific_roi_numbers), 10));
+   % データが10行未満の場合はすべての行を使用
+   if size(F_signal2, 1) < 10
+       randomRows = 1:size(F_signal2, 1);
    else
-       % データが10行未満の場合はすべての行を使用
-       if size(F_signal2, 1) < 10
-           randomRows = 1:size(F_signal2, 1);
-       else
-           % ランダムに10行選択
-           randomRows = randperm(size(F_signal2, 1), 10-num_zero_columns);
-       end
-       % ROI番号を取得
-       roi_col = F_signal2(:, end);
-       if iscell(roi_col)
-           display_roi_numbers = cell2mat(roi_col(randomRows));
-       else
-           display_roi_numbers = roi_col(randomRows);
-       end
+       % ランダムに10行選択
+       randomRows = randperm(size(F_signal2, 1), 10-num_zero_columns);
    end
-   
    % 最大値を取得
    max_value = max(F_signal2(randomRows, range), [], 2);
    offset = 10; % 各グラフをオフセットする量
-   
    % ランダムに選ばれた行と0の列の行を混合するためのインデックス
    allRows = [randomRows, zeros(1, num_zero_columns)]; % 0の行を追加
    allRows = allRows(randperm(length(allRows))); % シャッフル
-   
    for i = 1:length(allRows)
        if allRows(i) == 0
            % 0の行の場合
-           plot(range, zeros(1, length(range)) + (i-1) * offset, 'Color', colors(i, :));
+           plot(zeros(1, length(range)) + (i-1) * offset, 'Color', colors(i, :));
           
            % 縦軸のスケール追加（スケールバーの縦線のみ）
            scale_value = 1; % すべて0の行のスケールは1とする
-           plot([range(1) range(1)], [0 scale_value] + (i-1) * offset, 'Color', colors(i, :), 'LineWidth', 1);
+           plot([0 0], [0 scale_value] + (i-1) * offset, 'Color', colors(i, :), 'LineWidth', 1); % スケールバーの縦線
        else
            % ランダムに選ばれた行の場合
            % 各行の信号を最大値で正規化し、値をオフセットにスケール
-           plot(range, F_signal2(allRows(i), range) + (i-1) * offset, 'Color', colors(i, :), 'LineWidth', 1.5);
-          
-           % ★ROI番号を左側に表示
-           idx_in_random = find(randomRows == allRows(i));
-           if ~isempty(idx_in_random)
-               roi_num = display_roi_numbers(idx_in_random);
-               text(range(1)-length(range)*0.05, (i-1)*offset, sprintf('ROI #%d', roi_num), ...
-                   'FontSize', 10, 'Color', colors(i, :), 'FontWeight', 'bold', ...
-                   'HorizontalAlignment', 'right');
-           end
+           plot(F_signal2(allRows(i), range) + (i-1) * offset, 'Color', colors(i, :));
           
            % 縦軸のスケール追加（スケールバーの縦線のみ）
            scale_value = max_value(find(randomRows == allRows(i))) * 0.2; % 最大値の20%
-           plot([range(1) range(1)], [0 scale_value] + (i-1) * offset, 'Color', colors(i, :), 'LineWidth', 1);
+           plot([0 0], [0 scale_value] + (i-1) * offset, 'Color', colors(i, :), 'LineWidth', 1); % スケールバーの縦線
        end
    end
   
    hold off;
-   % ★フレーム数を表示（x軸のみ表示、y軸は非表示）
-   set(gca, 'YColor', 'none');
-   xlabel('Frame Number', 'FontSize', 12, 'FontWeight', 'bold');
-   title(sprintf('Traces from F\\_signal2 (%s) - Frames: %d-%d', titles{k}, range(1), range(end)));
+   % 軸を非表示に設定
+   set(gca, 'XColor', 'none', 'YColor', 'none');
+   title(['Random 10 Rows from F\_signal2 (' titles{k} ')']);
   
    % EPSファイルとして保存
    saveas(gcf, file_names{k}, 'epsc');

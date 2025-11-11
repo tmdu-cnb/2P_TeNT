@@ -9,11 +9,12 @@ prompt = { ...
     'Threshold for the number of sd(F) (e.g.,5):', ...
     'Threshold for removing low ROIs (例: 0.2):', ...
     'Number of the last frame for traces (例: 1000):', ...
-    'Extra margin for the max-vs-mean test (e.g.,15):' ...  % ← 追加
+    'Extra margin for the max-vs-mean test (e.g.,15):', ...
+    'ROI番号をカンマ区切りで入力 (例: 5,12,23, 空欄=ランダム10個):' ...  % ← ROI選択を追加
 };
 dlg_title = 'Condition settings';
 num_lines = 1;
-default_values = {'10', '1', '2', '0', '100', '1.2'}; % ← デフォルトに'1.5'を追加
+default_values = {'10', '1', '2', '0', '100', '1.2', ''}; % ← ROI番号の空欄を追加
 answer = inputdlg(prompt, dlg_title, num_lines, default_values);
 
 % 入力値を数値として取得
@@ -23,6 +24,7 @@ std_multiplier_F = str2double(answer{3});
 roi_remove_ratio = str2double(answer{4});
 Num_frames = str2double(answer{5});
 max_margin = str2double(answer{6});  % ← 追加: 余白（+15 など）
+roi_input = answer{7};  % ← ROI番号の入力（文字列）
 
 
 % 必要に応じて結果を表示
@@ -31,6 +33,11 @@ disp(['平均値の閾値: ', num2str(threshold_mean)]);
 disp(['標準偏差1倍の閾値: ', num2str(std_multiplier_T)]);
 disp(['標準偏差5倍の閾値: ', num2str(std_multiplier_F)]);
 disp(['ROI削除割合: ', num2str(roi_remove_ratio)]);
+if isempty(roi_input)
+    disp('波形表示: ランダム10個のROIを選択');
+else
+    disp(['波形表示ROI番号: ', roi_input]);
+end
 disp('処理完了');
 
 
@@ -157,6 +164,14 @@ F_signal2_check2 = F_signal2;
 
 % 任意の数だけすべて列が0の行を作成する数を指定
 num_zero_columns = 0; % ここで任意の数を指定
+
+% ★ROI番号の処理：入力があればそのROIを選択、なければランダム
+selected_roi_numbers = [];
+if ~isempty(roi_input) && ~isempty(strtrim(roi_input))
+    % カンマ区切りの文字列を数値配列に変換
+    selected_roi_numbers = str2num(roi_input); %#ok<ST2NM>
+end
+
 % Figure作成
 min_value = min(120, nF_pre); % 120とnF_preの小さい方を選択
 ranges = {[1:Num_frames], [1:Num_frames], [1:Num_frames]}; % 任意のframe数の範囲を指定
@@ -170,8 +185,31 @@ for k = 1:3
    figure;
    hold on;
   
-   % データが10行未満の場合はすべての行を使用
-   if size(F_signal2, 1) < 10
+   % ROI番号が指定されている場合
+   if ~isempty(selected_roi_numbers)
+       % F_signal2内でこれらのROI番号を探す（末尾列がROI番号）
+       if builtin('iscell', F_signal2)
+           all_roi_numbers = cell2mat(F_signal2(:, end));
+       else
+           all_roi_numbers = F_signal2(:, end);
+       end
+       randomRows = [];
+       for roi = selected_roi_numbers
+           idx = find(all_roi_numbers == roi, 1);
+           if ~isempty(idx)
+               randomRows = [randomRows, idx]; %#ok<AGROW>
+           end
+       end
+       if isempty(randomRows)
+           warning('指定されたROI番号が見つかりません。ランダムに選択します。');
+           if size(F_signal2, 1) < 10
+               randomRows = 1:size(F_signal2, 1);
+           else
+               randomRows = randperm(size(F_signal2, 1), 10-num_zero_columns);
+           end
+       end
+   % ROI番号が指定されていない場合はランダム
+   elseif size(F_signal2, 1) < 10
        randomRows = 1:size(F_signal2, 1);
    else
        % ランダムに10行選択
@@ -199,13 +237,29 @@ for k = 1:3
            % 縦軸のスケール追加（スケールバーの縦線のみ）
            scale_value = max_value(find(randomRows == allRows(i))) * 0.2; % 最大値の20%
            plot([0 0], [0 scale_value] + (i-1) * offset, 'Color', colors(i, :), 'LineWidth', 1); % スケールバーの縦線
+           
+           % ★ROI番号を図の中に表示
+           % F_signal2の最後の列からROI番号を取得
+           if builtin('iscell', F_signal2)
+               roi_num = F_signal2{allRows(i), end};
+           else
+               roi_num = F_signal2(allRows(i), end);
+           end
+           % 波形の左側にROI番号を表示（白背景で見やすく）
+           text(-3, (i-1) * offset + offset/2, sprintf('ROI %d', roi_num), ...
+               'Color', colors(i, :), 'FontSize', 4, 'FontWeight', 'bold', ...
+               'BackgroundColor', 'w', 'EdgeColor', colors(i, :), 'LineWidth', 0.5);
        end
    end
   
    hold off;
-   % 軸を非表示に設定
-   set(gca, 'XColor', 'none', 'YColor', 'none');
-   title(['Random 10 Rows from F\_signal2 (' titles{k} ')']);
+   % X軸を表示、Y軸は非表示に設定
+   set(gca, 'XColor', 'k', 'YColor', 'none');
+   xlabel('Frame Number', 'FontSize', 10, 'FontWeight', 'bold');
+   % 余白を追加（左右に5%ずつ）
+   margin = length(range) * 0.05;
+   xlim([1-margin length(range)+margin]);
+   title(sprintf('Traces from F\\_signal2 (Frames: %d-%d)', range(1), range(end)), 'FontSize', 12);
   
    % EPSファイルとして保存
    saveas(gcf, file_names{k}, 'epsc');

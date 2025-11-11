@@ -2,23 +2,26 @@ mkdir result % folder name result
 
 % 条件の値を入力するポップアップを表示
 prompt = {'Enter frequency of imaging (freq, e.g., 5):', ...
-          'Enter threshold for npix (ROI size) (e.g., 2.5 * 2.5 * 3.14):', ...
-          'Enter MINIMUM of y_range / x_range ratio (e.g., 2.5 for dendrite):', ...
-          'Enter MAXIMUM of y_range / x_range ratio (e.g., 200 for dendrite):'};
+          'Enter MINIMUM threshold for npix (ROI size) (e.g., 20):', ...
+          'Enter MAXIMUM threshold for npix (ROI size, 0 to skip) (e.g., 1000):', ...
+          'Enter MINIMUM of y_range / x_range ratio (e.g., 0.5):', ...
+          'Enter MAXIMUM of y_range / x_range ratio (e.g., 2.0):'};
 dlg_title = 'Set Conditions';
 num_lines = 1;
-default_ans = {'1', '20', '0.5', '2.0'}; % デフォルト値を調整
+default_ans = {'1', '20', '1000', '0.5', '2.0'}; % デフォルト値を調整
 answer = inputdlg(prompt, dlg_title, num_lines, default_ans);
 
 % 入力値を数値に変換
 freq = str2double(answer{1});
-npix_threshold = str2double(answer{2});
-ratio_min = str2double(answer{3});
-ratio_max = str2double(answer{4});
+npix_threshold_min = str2double(answer{2});
+npix_threshold_max = str2double(answer{3});
+ratio_min = str2double(answer{4});
+ratio_max = str2double(answer{5});
 
 % 入力された値を確認
 disp(['Frequency (freq): ', num2str(freq)]);
-disp(['npix threshold: ', num2str(npix_threshold)]);
+disp(['npix MINIMUM threshold: ', num2str(npix_threshold_min)]);
+disp(['npix MAXIMUM threshold: ', num2str(npix_threshold_max), ' (0=skip)']);
 disp(['y_range / x_range ratio range: ', num2str(ratio_min), ' ~ ', num2str(ratio_max)]);
 
 
@@ -31,8 +34,12 @@ end
 
 % statセル配列の各要素について処理
 for i = 1:numel(stat)
-    % npixが50未満の場合、対応するFの行を削除するためにrows_to_deleteに追加
-    if stat{i}.npix < npix_threshold
+    % npixが最小閾値未満の場合、対応するFの行を削除するためにrows_to_deleteに追加
+    if stat{i}.npix < npix_threshold_min
+        rows_to_delete = [rows_to_delete, i];
+    end
+    % npixが最大閾値を超える場合も削除（0の場合はスキップ）
+    if npix_threshold_max > 0 && stat{i}.npix > npix_threshold_max
         rows_to_delete = [rows_to_delete, i];
     end
 end

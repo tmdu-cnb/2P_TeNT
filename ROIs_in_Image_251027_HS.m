@@ -87,6 +87,101 @@ end
 % 全体が見えるように軸固定
 xlim([0.5, W+0.5]); ylim([0.5, H+0.5]);
 
+% ★ROI番号指定で強調表示＋波形データ表示機能を追加
+prompt_highlight = {'強調表示したいROI番号をカンマ区切りで入力 (例: 5,12,23)', ...
+                    '※空欄のままOKで強調表示なし'};
+answer_highlight = inputdlg(prompt_highlight, 'Highlight Specific ROIs (Optional)', [1 60], {''});
+
+if ~isempty(answer_highlight) && ~isempty(strtrim(answer_highlight{1}))
+    highlight_rois = str2num(answer_highlight{1}); %#ok<ST2NM>
+    
+    if ~isempty(highlight_rois)
+        % 強調表示するROI
+        for i = 1:numel(highlight_rois)
+            r = highlight_rois(i);
+            if r < 1 || r > numel(stat)
+                warning('ROI %d は stat の範囲外です（スキップ）。', r);
+                continue;
+            end
+            
+            x = double(stat{r}.xpix(:));
+            y = double(stat{r}.ypix(:));
+            x = min(max(x, 0.5), W+0.5);
+            y = min(max(y, 0.5), H+0.5);
+            
+            if numel(x) < 3
+                continue;
+            end
+            
+            % 外周ポリゴン
+            k = boundary(x, y, 0.8);
+            px = x(k); py = y(k);
+            
+            % ★太い線で強調表示
+            plot(px, py, 'Color', 'r', 'LineWidth', 4);
+            
+            % 重心に大きくROI番号を表示
+            mask_h = poly2mask(px, py, H, W);
+            statsC_h = regionprops(mask_h, 'Centroid');
+            if ~isempty(statsC_h)
+                c_h = statsC_h(1).Centroid;
+            else
+                c_h = [mean(px) mean(py)];
+            end
+            
+            % 背景付きで番号を大きく表示
+            text(c_h(1), c_h(2), sprintf('%d', r), ...
+                'Color', 'r', 'FontSize', 16, 'FontWeight', 'bold', ...
+                'HorizontalAlignment', 'center', 'VerticalAlignment', 'middle', ...
+                'BackgroundColor', 'w', 'EdgeColor', 'r', 'LineWidth', 2);
+        end
+        
+        % ★波形データを表示
+        if exist(csvFile, 'file') == 2
+            try
+                % presentation.csvからデータを読み込み
+                csv_data = readmatrix(csvFile);
+                csv_roi_col = csv_data(3:end, end-3);  % ROI番号列
+                
+                % 各強調ROIの波形を表示
+                figure('Name', 'Highlighted ROI Traces', 'Position', [100, 100, 1200, 800]);
+                num_plots = numel(highlight_rois);
+                colors_trace = lines(num_plots);
+                
+                for i = 1:num_plots
+                    roi_to_find = highlight_rois(i);
+                    
+                    % CSVからROIのデータを検索
+                    roi_idx = find(csv_roi_col == roi_to_find);
+                    
+                    if isempty(roi_idx)
+                        warning('ROI %d の波形データが見つかりません。', roi_to_find);
+                        continue;
+                    end
+                    
+                    % 波形データを取得（2列目から末尾-3まで）
+                    trace_data = csv_data(2+roi_idx, 2:end-3);
+                    
+                    % サブプロット
+                    subplot(num_plots, 1, i);
+                    plot(trace_data, 'Color', colors_trace(i,:), 'LineWidth', 2);
+                    title(sprintf('ROI #%d - Calcium Trace', roi_to_find), 'FontSize', 14, 'FontWeight', 'bold');
+                    xlabel('Frame Number', 'FontSize', 12);
+                    ylabel('Fluorescence Intensity', 'FontSize', 12);
+                    grid on;
+                    xlim([1, length(trace_data)]);
+                end
+                
+                disp('強調表示したROIの波形データを表示しました。');
+            catch ME
+                warning('波形データの読み込みに失敗しました: %s', ME.message);
+            end
+        else
+            warning('presentation.csv が見つからないため、波形データは表示できません。');
+        end
+    end
+end
+
 % 保存
 outFile = 'output_image_with_ROI_colored_G.tif';
 exportgraphics(gca, outFile, 'Resolution', 300);

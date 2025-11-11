@@ -245,10 +245,10 @@ for k = 1:3
            else
                roi_num = F_signal2(allRows(i), end);
            end
-           % 波形の左側にROI番号を表示（白背景で見やすく）
-           text(-3, (i-1) * offset + offset/2, sprintf('ROI %d', roi_num), ...
+           % 波形の左側にROI番号を表示（番号のみ、枠なし）
+           text(-3, (i-1) * offset + offset/2, sprintf('%d', roi_num), ...
                'Color', colors(i, :), 'FontSize', 4, 'FontWeight', 'bold', ...
-               'BackgroundColor', 'w', 'EdgeColor', colors(i, :), 'LineWidth', 0.5);
+               'BackgroundColor', 'none', 'EdgeColor', 'none');
        end
    end
   

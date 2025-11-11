@@ -159,32 +159,47 @@ F_signal2_check2 = F_signal2;
 num_zero_columns = 0; % ここで任意の数を指定
 
 % ★ROI番号指定オプションを追加
-prompt_roi = {'ROI番号を指定しますか？(Y/N):', ...
-              'ROI番号をカンマ区切りで入力 (例: 5,12,23) または空白でランダム10個:'};
-answer_roi = inputdlg(prompt_roi, 'ROI Selection for Traces', [1 60], {'N', ''});
+prompt_roi = {'ROI番号をカンマ区切りで入力 (例: 5,12,23)', ...
+              '※空欄のままOK、またはキャンセルでランダム10個が選ばれます'};
+answer_roi = inputdlg(prompt_roi, 'ROI Selection for Traces (Optional)', [1 60], {''});
 
 use_specific_rois = false;
 specific_roi_indices = [];
 specific_roi_numbers = [];
 
-if ~isempty(answer_roi) && upper(answer_roi{1}) == 'Y' && ~isempty(answer_roi{2})
+% ダイアログがキャンセルされた場合、または空欄の場合はランダム選択
+if ~isempty(answer_roi) && ~isempty(strtrim(answer_roi{1}))
     use_specific_rois = true;
-    specified_rois = str2num(answer_roi{2}); %#ok<ST2NM>
+    specified_rois = str2num(answer_roi{1}); %#ok<ST2NM>
     
-    % F_signal2のROI番号列を確認
-    roi_col = F_signal2(:, end);
-    if iscell(roi_col)
-        roi_col = cell2mat(roi_col);
+    if isempty(specified_rois)
+        warning('ROI番号の形式が正しくありません。ランダム選択に切り替えます。');
+        use_specific_rois = false;
+    else
+        % F_signal2のROI番号列を確認
+        roi_col = F_signal2(:, end);
+        if iscell(roi_col)
+            roi_col = cell2mat(roi_col);
+        end
+        
+        % 指定されたROIがF_signal2に存在するか確認
+        [tf, loc] = ismember(specified_rois, roi_col);
+        if ~all(tf)
+            missing = specified_rois(~tf);
+            warning('以下のROIが見つかりません: %s', num2str(missing));
+        end
+        if ~any(tf)
+            warning('指定されたROIが1つも見つかりませんでした。ランダム選択に切り替えます。');
+            use_specific_rois = false;
+        else
+            specific_roi_indices = loc(tf);  % F_signal2内の行インデックス
+            specific_roi_numbers = specified_rois(tf);  % 実際のROI番号
+        end
     end
-    
-    % 指定されたROIがF_signal2に存在するか確認
-    [tf, loc] = ismember(specified_rois, roi_col);
-    if ~all(tf)
-        missing = specified_rois(~tf);
-        warning('以下のROIが見つかりません: %s', num2str(missing));
-    end
-    specific_roi_indices = loc(tf);  % F_signal2内の行インデックス
-    specific_roi_numbers = specified_rois(tf);  % 実際のROI番号
+end
+
+if ~use_specific_rois
+    disp('ROI番号が指定されていないため、ランダムに選択します。');
 end
 
 % Figure作成

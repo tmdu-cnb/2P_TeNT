@@ -71,11 +71,11 @@ for i = 1:num_rois
     k  = boundary(x, y, 0.8);
     px = x(k); py = y(k);
 
-    % 半透明で塗る
+    % ★ROIの形を強調：輪郭を太く、塗りは薄く
     fill(px, py, colors(i,:), ...
-        'EdgeColor', colors(i,:), 'LineWidth', 1.2, 'FaceAlpha', 0.25);
+        'EdgeColor', colors(i,:), 'LineWidth', 3, 'FaceAlpha', 0.15);
 
-    % 重心をマスクから推定して番号描画（二重描画で視認性UP）
+    % 重心をマスクから推定して番号描画（小さめ＆透明背景で控えめに）
     mask = poly2mask(px, py, H, W);
     statsC = regionprops(mask, 'Centroid');
     if ~isempty(statsC)
@@ -84,13 +84,11 @@ for i = 1:num_rois
         c = [mean(px) mean(py)];  % フォールバック
     end
 
-    % 影（黒）→ 本体（白）
+    % ROI番号を小さく控えめに表示
     text(c(1), c(2), sprintf('%d', r), ...
-        'Color','k','FontSize',11,'FontWeight','bold', ...
-        'HorizontalAlignment','center','VerticalAlignment','middle');
-    text(c(1), c(2), sprintf('%d', r), ...
-        'Color','w','FontSize',10,'FontWeight','bold', ...
-        'HorizontalAlignment','center','VerticalAlignment','middle');
+        'Color','w','FontSize',7,'FontWeight','bold', ...
+        'HorizontalAlignment','center','VerticalAlignment','middle', ...
+        'BackgroundColor', 'none', 'EdgeColor', 'none');
 end
 
 % 全体が見えるように軸固定
@@ -119,23 +117,8 @@ if ~isempty(highlight_rois)
             k = boundary(x, y, 0.8);
             px = x(k); py = y(k);
             
-            % ★太い線で強調表示
-            plot(px, py, 'Color', 'r', 'LineWidth', 4);
-            
-            % 重心に大きくROI番号を表示
-            mask_h = poly2mask(px, py, H, W);
-            statsC_h = regionprops(mask_h, 'Centroid');
-            if ~isempty(statsC_h)
-                c_h = statsC_h(1).Centroid;
-            else
-                c_h = [mean(px) mean(py)];
-            end
-            
-            % 背景付きで番号を大きく表示
-            text(c_h(1), c_h(2), sprintf('%d', r), ...
-                'Color', 'r', 'FontSize', 16, 'FontWeight', 'bold', ...
-                'HorizontalAlignment', 'center', 'VerticalAlignment', 'middle', ...
-                'BackgroundColor', 'w', 'EdgeColor', 'r', 'LineWidth', 2);
+            % ★太い線＋塗りつぶしで強調表示（テキストなし）
+            fill(px, py, 'r', 'EdgeColor', 'r', 'LineWidth', 5, 'FaceAlpha', 0.3);
         end
         
         % ★波形データを表示

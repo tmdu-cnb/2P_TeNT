@@ -27,6 +27,15 @@ if useOriginalIndex
     roi_numbers = roi_numbers + 1;
 end
 
+% ★ROI番号指定で強調表示＋波形データ表示機能を追加（図を描く前に聞く）
+prompt_highlight = {'強調表示したいROI番号をカンマ区切りで入力 (例: 5,12,23, 空欄=なし):'};
+answer_highlight = inputdlg(prompt_highlight, 'Highlight Specific ROIs (Optional)', 1, {''});
+
+highlight_rois = [];
+if ~isempty(answer_highlight) && ~isempty(strtrim(answer_highlight{1}))
+    highlight_rois = str2num(answer_highlight{1}); %#ok<ST2NM>
+end
+
 % 表示（白黒固定）
 figure('Color','w');
 imshow(img, [], 'InitialMagnification', 'fit');
@@ -87,15 +96,8 @@ end
 % 全体が見えるように軸固定
 xlim([0.5, W+0.5]); ylim([0.5, H+0.5]);
 
-% ★ROI番号指定で強調表示＋波形データ表示機能を追加
-prompt_highlight = {'強調表示したいROI番号をカンマ区切りで入力 (例: 5,12,23)', ...
-                    '※空欄のままOKで強調表示なし'};
-answer_highlight = inputdlg(prompt_highlight, 'Highlight Specific ROIs (Optional)', [1 60], {''});
-
-if ~isempty(answer_highlight) && ~isempty(strtrim(answer_highlight{1}))
-    highlight_rois = str2num(answer_highlight{1}); %#ok<ST2NM>
-    
-    if ~isempty(highlight_rois)
+% ★強調表示する ROI がある場合の処理
+if ~isempty(highlight_rois)
         % 強調表示するROI
         for i = 1:numel(highlight_rois)
             r = highlight_rois(i);
@@ -179,7 +181,6 @@ if ~isempty(answer_highlight) && ~isempty(strtrim(answer_highlight{1}))
         else
             warning('presentation.csv が見つからないため、波形データは表示できません。');
         end
-    end
 end
 
 % 保存

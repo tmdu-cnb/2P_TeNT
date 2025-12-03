@@ -5,15 +5,15 @@
 ## ファイル一覧
 
 ### メイン処理スクリプト
-- **P10_subtract_251019_XYratio_remove_HS.m** - 前処理とXY比補正・ノイズ除去
-- **P10_detectROI__251019_HS.m** - ROI検出とフィルタリング（メインスクリプト）
+- **P10_subtract_detect_251201_HS.m** - 統合スクリプト（前処理、ROI検出、フィルタリング）
 - **Calcium_properties_251019_HS.m** - カルシウムシグナルの特性解析（振幅、頻度、面積など）
-- **ROIs_in_Image_251027_HS.m** - ROIの可視化と輝度測定
+- **ROIs_in_Image_251130_HS.m** - ROIの可視化と輝度測定
+- **ROIs_in_Image_Interactive_251130.m** - インタラクティブROIビューア
 
 ### 解析スクリプト
 - **Correlation_2501019_HS.m** - ROI間の相関解析
 - **frequency_distribution_251012_HS.m** - 頻度分布解析
-- **SeparationROIs_by_Redintensity_251027_HS.m** - 赤色蛍光強度によるROI分類
+- **SepaROIsbyRed_Correlation_Properties.m** - 赤色蛍光強度によるROI分類と特性解析（統合版）
 
 ## 主な機能
 
@@ -37,9 +37,9 @@
 ## 使用方法
 
 1. Suite2Pで解析したデータを用意
-2. `P10_detectROI__251019_HS.m` を実行してROIをフィルタリング
+2. `P10_subtract_detect_251201_HS.m` を実行（フォルダ選択後、自動的にfall.matを読み込み、ROI検出・フィルタリングを実行）
 3. `Calcium_properties_251019_HS.m` でカルシウム特性を解析
-4. `ROIs_in_Image_251027_HS.m` でROIを可視化
+4. `ROIs_in_Image_251130_HS.m` でROIを可視化、または `ROIs_in_Image_Interactive_251130.m` でインタラクティブにROIを表示
 
 ## 出力ファイル
 

@@ -47,20 +47,30 @@ set(gca,'YDir','reverse');   % y軸を画像の行方向（上→下で増加）
 num_rois = numel(roi_numbers);
 colors = lines(num_rois);
 
+% statアクセサの設定（iscell衝突回避）
+if builtin('iscell', stat)
+    stat_at = @(i) stat{i};
+    nStat = numel(stat);
+else
+    stat_at = @(i) stat(i);
+    nStat = numel(stat);
+end
+
 % ROIごとに描画 & ラベリング
 for i = 1:num_rois
     r = roi_numbers(i);
-    if r < 1 || r > numel(stat)
+    if r < 1 || r > nStat
         warning('ROI %d は stat の範囲外です（スキップ）。', r);
         continue;
     end
 
-    x = double(stat{r}.xpix(:));
-    y = double(stat{r}.ypix(:));
+    S = stat_at(r);
+    x = double(S.xpix);  % x座標を数値型に変換
+    y = double(S.ypix);  % y座標を数値型に変換
 
     % 範囲クリップ（はみ出し防止）
-    x = min(max(x, 0.5), W+0.5);
-    y = min(max(y, 0.5), H+0.5);
+    x = min(max(x(:), 0.5), W+0.5);  % 列ベクトルに変換してからクリップ
+    y = min(max(y(:), 0.5), H+0.5);  % 列ベクトルに変換してからクリップ
 
     if numel(x) < 3
         warning('ROI %d の頂点数が少なすぎます（スキップ）。', r);
@@ -84,11 +94,18 @@ for i = 1:num_rois
         c = [mean(px) mean(py)];  % フォールバック
     end
 
+    % original_ROI_numberを取得して表示
+    if isfield(S, 'original_roi_number')
+        original_roi_num = S.original_roi_number;
+    else
+        original_roi_num = r;  % original_roi_numberがない場合はstatインデックスを使用
+    end
+
     % 影（黒）→ 本体（白）
-    text(c(1), c(2), sprintf('%d', r), ...
+    text(c(1), c(2), sprintf('%d', original_roi_num), ...
         'Color','k','FontSize',11,'FontWeight','bold', ...
         'HorizontalAlignment','center','VerticalAlignment','middle');
-    text(c(1), c(2), sprintf('%d', r), ...
+    text(c(1), c(2), sprintf('%d', original_roi_num), ...
         'Color','w','FontSize',10,'FontWeight','bold', ...
         'HorizontalAlignment','center','VerticalAlignment','middle');
 end
@@ -237,11 +254,11 @@ for k = 1:numel(roi_numbers)
     r = roi_numbers(k);
     S = stat_at(r);
 
-    x = double(S.xpix(:));
-    y = double(S.ypix(:));
+    x = double(S.xpix);  % x座標を数値型に変換
+    y = double(S.ypix);  % y座標を数値型に変換
 
 % --- 追加：頂点数チェック（少ないROIはスキップ） ---
-if numel(x) < 3 || numel(y) < 3
+if numel(x(:)) < 3 || numel(y(:)) < 3
     warning('ROI %d の頂点数が少なすぎます（スキップ）。', r);
     res(k).area_px  = 0;
     res(k).mean_int = NaN;
@@ -250,9 +267,8 @@ end
 
 
     % 画像範囲にクリップ（はみ出し対策）
-        % 画像範囲にクリップ（はみ出し対策）
-    x = min(max(x, 0.5), W+0.5);
-    y = min(max(y, 0.5), H+0.5);
+    x = min(max(x(:), 0.5), W+0.5);  % 列ベクトルに変換してからクリップ
+    y = min(max(y(:), 0.5), H+0.5);  % 列ベクトルに変換してからクリップ
 
     % ==== 計測用マスク（従来どおり）====
     mask = poly2mask(x, y, H, W);
@@ -298,11 +314,18 @@ end
         c = [mean(px) mean(py)];  % 最後のフォールバック
     end
 
+    % original_ROI_numberを取得して表示
+    if isfield(S, 'original_roi_number')
+        original_roi_num = S.original_roi_number;
+    else
+        original_roi_num = r;  % original_roi_numberがない場合はstatインデックスを使用
+    end
+
     % ==== ROI番号ラベル（二重描画で視認性UP）====
-    text(c(1), c(2), sprintf('%d', r), ...
+    text(c(1), c(2), sprintf('%d', original_roi_num), ...
         'Color', 'k', 'FontSize', 11, 'FontWeight', 'bold', ...
         'HorizontalAlignment', 'center', 'VerticalAlignment', 'middle');
-    text(c(1), c(2), sprintf('%d', r), ...
+    text(c(1), c(2), sprintf('%d', original_roi_num), ...
         'Color', 'w', 'FontSize', 10, 'FontWeight', 'bold', ...
         'HorizontalAlignment', 'center', 'VerticalAlignment', 'middle');
 end

@@ -168,9 +168,17 @@ for i = 1:numel(all_roi_numbers)
         cr  = [NaN, NaN];
     end
 
+    % original_roi_numberを取得
+    if isfield(S, 'original_roi_number')
+        original_roi_num = S.original_roi_number;
+    else
+        original_roi_num = r;  % original_roi_numberがない場合はstatインデックスを使用
+    end
+
     % struct に格納
     cnt = cnt + 1;
     roiInfo(cnt).roi        = r;      %#ok<*AGROW>
+    roiInfo(cnt).original_roi_number = original_roi_num;  % 表示用のoriginal ROI番号
     roiInfo(cnt).px_gcamp   = pxg;
     roiInfo(cnt).py_gcamp   = pyg;
     roiInfo(cnt).cx_gcamp   = cg(1);
@@ -384,7 +392,8 @@ redrawImage();
             info = roiInfo(k);
             r    = info.roi;
 
-            is_highlight = ~isempty(highlight_rois) && any(highlight_rois == r);
+            % 入力されたROI番号（original_roi_number）と比較
+            is_highlight = ~isempty(highlight_rois) && any(highlight_rois == info.original_roi_number);
 
             % --- GCaMP ---
             pxg = info.px_gcamp;
@@ -400,7 +409,9 @@ redrawImage();
 
                 cxg = info.cx_gcamp; cyg = info.cy_gcamp;
                 if ~isnan(cxg)
-                    text(axG, cxg, cyg, sprintf('%d', r), ...
+                    % original_roi_numberを表示
+                    display_num = info.original_roi_number;
+                    text(axG, cxg, cyg, sprintf('%d', display_num), ...
                         'Color', 'w', 'FontSize', 7, 'FontWeight', 'bold', ...
                         'HorizontalAlignment', 'center', 'VerticalAlignment', 'middle', ...
                         'BackgroundColor', 'none', 'EdgeColor', 'none');
@@ -421,7 +432,9 @@ redrawImage();
 
                 cxr = info.cx_rfp; cyr = info.cy_rfp;
                 if ~isnan(cxr)
-                    text(axR, cxr, cyr, sprintf('%d', r), ...
+                    % original_roi_numberを表示
+                    display_num = info.original_roi_number;
+                    text(axR, cxr, cyr, sprintf('%d', display_num), ...
                         'Color', 'w', 'FontSize', 7, 'FontWeight', 'bold', ...
                         'HorizontalAlignment', 'center', 'VerticalAlignment', 'middle', ...
                         'BackgroundColor', 'none', 'EdgeColor', 'none');
@@ -441,6 +454,7 @@ redrawImage();
         highlight_rois = ud.highlight_rois;
         csv_data = ud.csv_data;
         csv_roi_col = ud.csv_roi_col;
+        roiInfo = ud.roiInfo;
 
         if isempty(highlight_rois)
             set(txt_status, 'String', 'ROI番号を入力してください');
@@ -452,20 +466,38 @@ redrawImage();
         end
 
         try
+            % original_roi_number → statインデックス（roi）のマッピングを作成
+            original_to_stat = containers.Map('KeyType', 'double', 'ValueType', 'double');
+            for k = 1:numel(roiInfo)
+                orig_num = roiInfo(k).original_roi_number;
+                stat_idx = roiInfo(k).roi;
+                original_to_stat(orig_num) = stat_idx;
+            end
+
             fig_trace = figure('Name', 'ROI Traces', ...
                                'Position', [200, 200, 1000, 600], ...
                                'Color', 'w');
 
-            hr = highlight_rois(:)';
+            hr = highlight_rois(:)';  % 入力されたoriginal_roi_number
             num_traces = numel(hr);
             colors_trace = lines(num_traces);
             traces_shown = 0;
 
             for idx = 1:num_traces
-                roi = hr(idx);
-                row_idx = find(csv_roi_col == roi, 1);
+                original_roi = hr(idx);
+                
+                % original_roi_numberをstatインデックスに変換
+                if isKey(original_to_stat, original_roi)
+                    stat_idx = original_to_stat(original_roi);
+                else
+                    warning('ROI %d (original_roi_number) のstatインデックスが見つかりません', original_roi);
+                    continue;
+                end
+                
+                % CSVのROI列（statインデックス）と照合
+                row_idx = find(csv_roi_col == stat_idx, 1);
                 if isempty(row_idx)
-                    warning('ROI %d の波形データが見つかりません', roi);
+                    warning('ROI %d (original_roi_number, stat_idx=%d) の波形データが見つかりません', original_roi, stat_idx);
                     continue;
                 end
 
@@ -478,7 +510,7 @@ redrawImage();
 
                 subplot(num_traces, 1, traces_shown, 'Parent', fig_trace);
                 plot(trace_data, 'Color', colors_trace(idx,:), 'LineWidth', 1.5);
-                title(sprintf('ROI %d', roi), 'FontSize', 11, 'FontWeight', 'bold');
+                title(sprintf('ROI %d (original_roi_number)', original_roi), 'FontSize', 11, 'FontWeight', 'bold');
                 ylabel('Signal');
                 grid on;
                 if traces_shown == num_traces
